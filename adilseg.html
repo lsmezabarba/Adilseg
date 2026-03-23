@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adilseg — Central de Operações</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #181c22;
+    --border: #1e242d;
+    --accent: #f5a623;
+    --green: #2ecc71;
+    --yellow: #f39c12;
+    --red: #e74c3c;
+    --blue: #3498db;
+    --text: #e8eaed;
+    --muted: #6b7280;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font-body); min-height:100vh; font-size:14px; }
+
+  /* ===== LOGIN ===== */
+  #login-screen {
+    position:fixed; inset:0; background:var(--bg); z-index:9999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px;
+  }
+
+  .login-box {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:36px 32px;
+    width:100%;
+    max-width:360px;
+    text-align:center;
+  }
+
+  .login-logo {
+    font-family:var(--font-display);
+    font-size:52px;
+    letter-spacing:5px;
+    color:var(--accent);
+    margin-bottom:4px;
+  }
+  .login-logo span { color:var(--text); }
+
+  .login-subtitle {
+    font-size:12px;
+    color:var(--muted);
+    letter-spacing:2px;
+    text-transform:uppercase;
+    margin-bottom:32px;
+  }
+
+  .login-box label {
+    text-align:left;
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+
+  .login-box input {
+    width:100%;
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    color:var(--text);
+    font-family:var(--font-body);
+    font-size:15px;
+    margin-bottom:16px;
+    outline:none;
+    transition:border-color 0.2s;
+    text-align:center;
+    letter-spacing:3px;
+  }
+  .login-box input:focus { border-color:var(--accent); }
+
+  .login-btn {
+    width:100%;
+    background:var(--accent);
+    color:#000;
+    border:none;
+    border-radius:8px;
+    padding:13px;
+    font-family:var(--font-body);
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:1px;
+    cursor:pointer;
+    transition:background 0.15s;
+    margin-top:4px;
+  }
+  .login-btn:hover { background:#e09610; }
+
+  .login-error {
+    margin-top:14px;
+    font-size:13px;
+    color:var(--red);
+    display:none;
+  }
+
+  .login-shake { animation: shake 0.4s ease; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)}
+    60%{transform:translateX(-6px)}
+    80%{transform:translateX(6px)}
+  }
+
+  /* roles */
+  .role-selector {
+    display:flex;
+    gap:8px;
+    margin-bottom:20px;
+  }
+  .role-btn {
+    flex:1;
+    padding:9px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--muted);
+    font-family:var(--font-body);
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all 0.15s;
+    letter-spacing:0.5px;
+  }
+  .role-btn.active {
+    background:rgba(245,166,35,0.1);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+
+  /* ===== LOADER ===== */
+  #loader {
+    position:fixed; inset:0; background:var(--bg); z-index:998;
+    display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  }
+  #loader.show { display:flex; }
+  .loader-logo { font-family:var(--font-display); font-size:48px; letter-spacing:4px; color:var(--accent); }
+  .loader-logo span { color:var(--text); }
+  .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loader-text { color:var(--muted); font-size:13px; }
+
+  /* ===== APP ===== */
+  #app { display:none; }
+  #app.show { display:block; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:56px; position:sticky; top:0; z-index:100; }
+  .logo { font-family:var(--font-display); font-size:28px; letter-spacing:3px; color:var(--accent); }
+  .logo span { color:var(--text); }
+  .header-right { display:flex; align-items:center; gap:12px; }
+  .header-date { font-family:var(--font-mono); font-size:11px; color:var(--muted); text-align:right; }
+  .sync-dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); cursor:pointer; }
+  .sync-dot.off { background:var(--red); box-shadow:0 0 6px var(--red); }
+  .logout-btn { font-size:11px; color:var(--muted); cursor:pointer; padding:4px 8px; border:1px solid var(--border); border-radius:4px; }
+  .logout-btn:hover { color:var(--red); border-color:var(--red); }
+
+  .tabs { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 20px; overflow-x:auto; }
+  .tab { padding:12px 18px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--muted); border-bottom:2px solid transparent; transition:all 0.2s; white-space:nowrap; }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab:hover:not(.active) { color:var(--text); }
+
+  main { padding:20px; max-width:900px; margin:0 auto; }
+  .section { display:none; }
+  .section.active { display:block; }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:12px; }
+  .card-title { font-family:var(--font-display); font-size:18px; letter-spacing:2px; color:var(--accent); margin-bottom:14px; }
+
+  label { display:block; font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+  input, select, textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:9px 12px; color:var(--text); font-family:var(--font-body); font-size:14px; margin-bottom:12px; outline:none; transition:border-color 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color:var(--accent); }
+  select option { background:var(--surface2); }
+  textarea { resize:vertical; min-height:70px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:480px) { .form-row { grid-template-columns:1fr; } }
+
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; border-radius:6px; border:none; cursor:pointer; font-family:var(--font-body); font-size:13px; font-weight:600; letter-spacing:0.5px; transition:all 0.15s; }
+  .btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .btn-primary { background:var(--accent); color:#000; }
+  .btn-primary:hover:not(:disabled) { background:#e09610; }
+  .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-whatsapp { background:#25d366; color:#fff; }
+  .btn-whatsapp:hover { background:#1ebe5d; }
+  .btn-sm { padding:5px 12px; font-size:12px; }
+
+  .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.5px; }
+  .badge-pending { background:rgba(243,156,18,0.15); color:var(--yellow); border:1px solid rgba(243,156,18,0.3); }
+  .badge-progress { background:rgba(52,152,219,0.15); color:var(--blue); border:1px solid rgba(52,152,219,0.3); }
+  .badge-done { background:rgba(46,204,113,0.15); color:var(--green); border:1px solid rgba(46,204,113,0.3); }
+  .badge-billed { background:rgba(245,166,35,0.15); color:var(--accent); border:1px solid rgba(245,166,35,0.3); }
+
+  .os-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:10px; }
+  .os-header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .os-number { font-family:var(--font-mono); font-size:11px; color:var(--muted); }
+  .os-client { font-weight:600; font-size:15px; color:var(--text); }
+  .os-detail { font-size:12px; color:var(--muted); margin-top:2px; }
+  .os-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+
+  .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; }
+  @media(min-width:600px) { .stats-grid { grid-template-columns:repeat(4,1fr); } }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; text-align:center; }
+  .stat-num { font-family:var(--font-display); font-size:40px; line-height:1; color:var(--accent); }
+  .stat-label { font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-top:4px; }
+
+  .tech-card { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:10px; }
+  .tech-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .tech-name { font-weight:600; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .tech-dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); display:inline-block; }
+
+  .empty { text-align:center; padding:40px 20px; color:var(--muted); }
+  .empty-icon { font-size:40px; margin-bottom:10px; }
+
+  .alert { background:rgba(245,166,35,0.1); border:1px solid rgba(245,166,35,0.3); border-radius:6px; padding:10px 14px; font-size:13px; color:var(--accent); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+
+  .msg-preview { background:var(--surface2); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:6px; padding:12px; font-size:13px; line-height:1.6; color:var(--text); white-space:pre-wrap; margin:10px 0; font-family:var(--font-mono); }
+
+  .divider { border:none; border-top:1px solid var(--border); margin:16px 0; }
+  .section-title { font-family:var(--font-display); font-size:22px; letter-spacing:2px; color:var(--text); margin-bottom:16px; }
+
+  /* TÉCNICO VIEW - tela simplificada */
+  .tec-os-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:14px;
+  }
+  .tec-os-tipo {
+    font-family:var(--font-display);
+    font-size:22px;
+    letter-spacing:2px;
+    color:var(--accent);
+    margin-bottom:4px;
+  }
+  .tec-os-cliente { font-size:17px; font-weight:600; margin-bottom:4px; }
+  .tec-os-info { font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.7; }
+  .tec-actions { display:flex; flex-direction:column; gap:8px; }
+
+  .toast { position:fixed; bottom:20px; right:20px; background:var(--green); color:#000; padding:10px 18px; border-radius:8px; font-weight:600; font-size:13px; z-index:9999; opacity:0; transform:translateY(10px); transition:all 0.3s; pointer-events:none; max-width:280px; }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast.error { background:var(--red); color:#fff; }
+  .toast.info { background:var(--blue); color:#fff; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">ADIL<span>SEG</span></div>
+    <div class="login-subtitle">Central de Operações</div>
+
+    <div class="role-selector">
+      <button class="role-btn active" onclick="setRole('gestor', this)">👤 Gestor</button>
+      <button class="role-btn" onclick="setRole('tecnico', this)">🔧 Técnico</button>
+    </div>
+
+    <label>Senha de acesso</label>
+    <input type="password" id="login-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+    <button class="login-btn" onclick="fazerLogin()">ENTRAR</button>
+    <div class="login-error" id="login-error">Senha incorreta. Tente novamente.</div>
+  </div>
+</div>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">ADIL<span>SEG</span></div>
+  <div class="spinner"></div>
+  <div class="loader-text" id="loader-text">Carregando...</div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <header>
+    <div class="logo">ADIL<span>SEG</span></div>
+    <div class="header-right">
+      <div class="sync-dot" id="syncDot" title="Conectado"></div>
+      <div class="header-date" id="headerDate"></div>
+      <div class="logout-btn" onclick="logout()">Sair</div>
+    </div>
+  </header>
+
+  <!-- TABS GESTOR -->
+  <div id="tabs-gestor" class="tabs">
+    <div class="tab active" data-tab="dashboard" onclick="showTab('dashboard',this)">📊 Painel</div>
+    <div class="tab" data-tab="nova-os" onclick="showTab('nova-os',this)">➕ Nova OS</div>
+    <div class="tab" data-tab="servicos" onclick="showTab('servicos',this)">📋 Serviços</div>
+    <div class="tab" data-tab="tecnicos" onclick="showTab('tecnicos',this)">👷 Técnicos</div>
+    <div class="tab" data-tab="cobranca" onclick="showTab('cobranca',this)">💬 Pós-Serviço</div>
+    <div class="tab" data-tab="config" onclick="showTab('config',this)">⚙️ Config</div>
+  </div>
+
+  <!-- TABS TÉCNICO -->
+  <div id="tabs-tecnico" class="tabs" style="display:none">
+    <div class="tab active" data-tab="tec-minhas-os" onclick="showTab('tec-minhas-os',this)">📋 Minhas OS</div>
+    <div class="tab" data-tab="tec-checkin" onclick="showTab('tec-checkin',this)">📍 Check-in</div>
+  </div>
+
+  <main>
+
+    <!-- ===== GESTOR SECTIONS ===== -->
+
+    <div class="section active" id="sec-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total OS</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-andamento" style="color:var(--blue)">—</div><div class="stat-label">Andamento</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-pendente" style="color:var(--yellow)">—</div><div class="stat-label">Pendentes</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-concluido" style="color:var(--green)">—</div><div class="stat-label">Concluídas</div></div>
+      </div>
+      <div class="section-title">AVISOS DE HOJE</div>
+      <div id="alertas-hoje"></div>
+      <div class="section-title" style="margin-top:20px">ÚLTIMAS ORDENS</div>
+      <div id="dashboard-list"></div>
+    </div>
+
+    <div class="section" id="sec-nova-os">
+      <div class="card">
+        <div class="card-title">NOVA ORDEM DE SERVIÇO</div>
+        <div class="form-row">
+          <div><label>Nome do Cliente</label><input type="text" id="os-cliente" placeholder="Ex: Sr. Luiz Silva"></div>
+          <div><label>Telefone (WhatsApp)</label><input type="tel" id="os-telefone" placeholder="(11) 99999-9999"></div>
+        </div>
+        <label>Tipo de Serviço</label>
+        <select id="os-tipo">
+          <option value="">Selecionar...</option>
+          <option>Instalação de câmera</option>
+          <option>Manutenção de câmera</option>
+          <option>Instalação de alarme</option>
+          <option>Manutenção de alarme</option>
+          <option>Instalação de cerca elétrica</option>
+          <option>Manutenção de cerca elétrica</option>
+          <option>Controle de acesso</option>
+          <option>Outros</option>
+        </select>
+        <label>Descrição / Observações</label>
+        <textarea id="os-desc" placeholder="Descreva o serviço..."></textarea>
+        <div class="form-row">
+          <div><label>Técnico Responsável</label><select id="os-tecnico"><option value="">Selecionar...</option></select></div>
+          <div><label>Data Agendada</label><input type="date" id="os-data"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Valor (R$)</label><input type="number" id="os-valor" placeholder="0,00" step="0.01"></div>
+          <div><label>Endereço</label><input type="text" id="os-endereco" placeholder="Rua, número, bairro"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-criar-os" onclick="criarOS()">✅ Criar Ordem de Serviço</button>
+      </div>
+    </div>
+
+    <div class="section" id="sec-servicos">
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <div class="section-title" style="margin:0;flex:1">ORDENS DE SERVIÇO</div>
+        <select id="filtro-status" onchange="renderServicos()" style="width:auto;margin:0;padding:7px 12px;">
+          <option value="">Todos</option>
+          <option value="Pendente">Pendente</option>
+          <option value="Em andamento">Em andamento</option>
+          <option value="Concluído">Concluído</option>
+          <option value="Cobrado">Cobrado</option>
+        </select>
+      </div>
+      <div id="lista-servicos"></div>
+    </div>
+
+    <div class="section" id="sec-tecnicos">
+      <div class="section-title">PAINEL DOS TÉCNICOS</div>
+      <div class="alert">⚡ Clique em "Cobrar" para abrir o WhatsApp com a mensagem pronta</div>
+      <div id="painel-tecnicos"></div>
+      <hr class="divider">
+      <div class="card">
+        <div class="card-title">GERENCIAR TÉCNICOS</div>
+        <div class="form-row">
+          <div><label>Nome</label><input type="text" id="novo-tecnico-nome" placeholder="Nome completo"></div>
+          <div><label>WhatsApp</label><input type="tel" id="novo-tecnico-tel" placeholder="(11) 99999-9999"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="adicionarTecnico()">➕ Adicionar Técnico</button>
+        <hr class="divider">
+        <div id="lista-tecnicos-config"></div>
+      </div>
+    </div>
+
+    <div class="section" id="sec-cobranca">
+      <div class="section-title">MENSAGENS PÓS-SERVIÇO</div>
+      <div class="alert">💡 Selecione um serviço concluído para gerar a mensagem automaticamente</div>
+      <div class="card">
+        <div class="card-title">GERAR MENSAGEM</div>
+        <label>Selecionar OS</label>
+        <select id="sel-os-cobranca" onchange="previewMensagem()"><option value="">Selecionar...</option></select>
+        <label>Tipo de Mensagem</label>
+        <select id="sel-tipo-msg" onchange="previewMensagem()">
+          <option value="agradecimento">✅ Agradecimento pós-serviço</option>
+          <option value="pix">💰 Solicitar pagamento via PIX</option>
+          <option value="completo">📦 Agradecimento + PIX (completo)</option>
+        </select>
+        <div id="msg-preview-box" style="display:none">
+          <label>Prévia da Mensagem</label>
+          <div class="msg-preview" id="msg-preview-text"></div>
+          <button class="btn btn-whatsapp" onclick="enviarWhatsApp()">📱 Abrir no WhatsApp</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">AGUARDANDO MENSAGEM</div>
+        <div id="lista-aguardando"></div>
+      </div>
+    </div>
+
+    <div class="section" id="sec-config">
+      <div class="card">
+        <div class="card-title">DADOS DA EMPRESA</div>
+        <label>Nome da Empresa</label><input type="text" id="cfg-empresa" placeholder="Nome da empresa">
+        <label>Responsável</label><input type="text" id="cfg-responsavel" placeholder="Seu nome">
+        <label>Chave PIX</label><input type="text" id="cfg-pix" placeholder="CPF, CNPJ, e-mail ou telefone">
+        <label>Titular PIX</label><input type="text" id="cfg-pix-nome" placeholder="Nome ou razão social">
+        <hr class="divider">
+        <div class="card-title" style="margin-bottom:10px">SENHAS DE ACESSO</div>
+        <div class="form-row">
+          <div><label>Senha do Gestor</label><input type="password" id="cfg-senha-gestor" placeholder="Senha atual: Adilseg2024"></div>
+          <div><label>Senha dos Técnicos</label><input type="password" id="cfg-senha-tecnico" placeholder="Senha atual: Tecnico2024"></div>
+        </div>
+        <button class="btn btn-primary" onclick="salvarConfig()">💾 Salvar Configurações</button>
+      </div>
+      <div class="card">
+        <div class="card-title">ACESSO EM OUTROS DISPOSITIVOS</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8">
+          <p>Após publicar no GitHub Pages, o link será:</p>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:var(--font-mono);font-size:13px;color:var(--accent);margin:10px 0">
+            https://SEU-USUARIO.github.io/adilseg
+          </div>
+          <p>Técnicos entram com a senha de técnico — eles veem apenas as OS deles e o check-in de localização.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TÉCNICO SECTIONS ===== -->
+
+    <div class="section" id="sec-tec-minhas-os">
+      <div class="section-title">MINHAS ORDENS DE SERVIÇO</div>
+      <div id="tec-lista-os"></div>
+    </div>
+
+    <div class="section" id="sec-tec-checkin">
+      <div class="card">
+        <div class="card-title">CHECK-IN DE LOCALIZAÇÃO</div>
+        <div class="alert">📍 Compartilhe sua localização para o gestor acompanhar em tempo real</div>
+
+        <div id="checkin-status" style="text-align:center;padding:20px 0">
+          <div style="font-size:48px;margin-bottom:12px">📍</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:6px" id="checkin-msg">Localização não compartilhada</div>
+          <div style="font-size:12px;color:var(--muted)" id="checkin-ultima"></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+          <button class="btn btn-primary" onclick="compartilharLocalizacao()" id="btn-checkin" style="justify-content:center">
+            📍 Compartilhar Minha Localização
+          </button>
+          <button class="btn btn-ghost" onclick="pararLocalizacao()" id="btn-parar-checkin" style="display:none;justify-content:center">
+            ⏹️ Parar Compartilhamento
+          </button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="card-title">SELECIONAR TÉCNICO</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Identifique-se para o gestor saber quem está onde:</p>
+        <select id="tec-self-select" style="margin-bottom:0">
+          <option value="">Selecionar meu nome...</option>
+        </select>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== CONFIG =====================
+const SUPABASE_URL = 'https://xexshmnjbmznwytbadye.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhleHNobW5qYm16bnd5dGJhZHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNjkxOTcsImV4cCI6MjA4OTY0NTE5N30.AmgviDphxYSi9oMyEWK0axEcx5XGqLKBd05eVD2Cabg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Senhas padrão — mudar em Config
+const SENHAS = {
+  gestor: 'Adilseg2024',
+  tecnico: 'Tecnico2024'
+};
+
+let currentRole = 'gestor';
+let ordens = [], tecnicos = [], config = { empresa:'Adilseg', responsavel:'', pix:'', pix_nome:'' };
+let locationInterval = null;
+
+// ===================== LOGIN =====================
+function setRole(role, el) {
+  currentRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function fazerLogin() {
+  const senha = document.getElementById('login-input').value;
+  const senhaGestor = localStorage.getItem('adilseg_senha_gestor') || SENHAS.gestor;
+  const senhaTecnico = localStorage.getItem('adilseg_senha_tecnico') || SENHAS.tecnico;
+
+  if (currentRole === 'gestor' && senha === senhaGestor) {
+    entrar('gestor');
+  } else if (currentRole === 'tecnico' && senha === senhaTecnico) {
+    entrar('tecnico');
+  } else {
+    const box = document.querySelector('.login-box');
+    box.classList.remove('login-shake');
+    void box.offsetWidth;
+    box.classList.add('login-shake');
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('login-input').value = '';
+  }
+}
+
+function entrar(role) {
+  sessionStorage.setItem('adilseg_role', role);
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('loader').classList.add('show');
+  document.getElementById('loader-text').textContent = 'Carregando dados...';
+  init(role);
+}
+
+function logout() {
+  sessionStorage.removeItem('adilseg_role');
+  if (locationInterval) clearInterval(locationInterval);
+  location.reload();
+}
+
+// Auto-login se já estava logado
+window.addEventListener('load', () => {
+  const role = sessionStorage.getItem('adilseg_role');
+  if (role) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('loader').classList.add('show');
+    init(role);
+  }
+});
+
+// ===================== INIT =====================
+async function init(role) {
+  try {
+    await Promise.all([loadTecnicos(), loadOrdens(), loadConfig()]);
+    document.getElementById('loader').classList.remove('show');
+    document.getElementById('app').classList.add('show');
+    setSyncDot(true);
+
+    if (role === 'tecnico') {
+      document.getElementById('tabs-gestor').style.display = 'none';
+      document.getElementById('tabs-tecnico').style.display = 'flex';
+      showOnlySection('sec-tec-minhas-os');
+      renderTecView();
+    } else {
+      renderAll();
+    }
+  } catch(e) {
+    setSyncDot(false);
+    document.getElementById('loader-text').textContent = 'Erro de conexão.';
+    console.error(e);
+  }
+}
+
+// ===================== DATA =====================
+async function loadOrdens() {
+  const { data, error } = await sb.from('ordens').select('*, tecnicos(nome,tel)').order('id', { ascending:false });
+  if (error) throw error;
+  ordens = data || [];
+}
+
+async function loadTecnicos() {
+  const { data, error } = await sb.from('tecnicos').select('*').order('id');
+  if (error) throw error;
+  tecnicos = data || [];
+}
+
+async function loadConfig() {
+  const { data, error } = await sb.from('config').select('*').eq('id', 1).single();
+  if (error && error.code !== 'PGRST116') throw error;
+  if (data) config = data;
+}
+
+// ===================== UTILS =====================
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+function setSyncDot(ok) {
+  const d = document.getElementById('syncDot');
+  d.className = 'sync-dot' + (ok ? '' : ' off');
+}
+
+function formatDate(str) {
+  if (!str) return '—';
+  const [y,m,d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function limparTel(tel) { return (tel||'').replace(/\D/g,''); }
+
+function badgeStatus(s) {
+  const map = { 'Pendente':'badge-pending','Em andamento':'badge-progress','Concluído':'badge-done','Cobrado':'badge-billed' };
+  return `<span class="badge ${map[s]||''}">${s}</span>`;
+}
+
+function getTecnico(id) { return tecnicos.find(t => t.id == id) || { nome:'—', tel:'' }; }
+
+function updateDate() {
+  const now = new Date();
+  const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const el = document.getElementById('headerDate');
+  if (el) el.innerHTML = `${dias[now.getDay()]}, ${now.getDate()} ${meses[now.getMonth()]}<br>${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+setInterval(updateDate, 1000);
+updateDate();
+
+// ===================== NAV =====================
+function showTab(tab, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-'+tab).classList.add('active');
+  if (el) el.classList.add('active');
+  renderAll();
+}
+
+function showOnlySection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showTabByName(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.remove('active');
+    if (t.dataset.tab === tab) t.classList.add('active');
+  });
+  document.getElementById('sec-'+tab).classList.add('active');
+}
+
+// ===================== CRIAR OS =====================
+async function criarOS() {
+  const cliente = document.getElementById('os-cliente').value.trim();
+  const telefone = document.getElementById('os-telefone').value.trim();
+  const tipo = document.getElementById('os-tipo').value;
+  const desc = document.getElementById('os-desc').value.trim();
+  const tecnico_id = document.getElementById('os-tecnico').value;
+  const data_agendada = document.getElementById('os-data').value || null;
+  const valor = parseFloat(document.getElementById('os-valor').value) || 0;
+  const endereco = document.getElementById('os-endereco').value.trim();
+
+  if (!cliente || !tipo || !tecnico_id) { toast('⚠️ Preencha cliente, tipo e técnico','error'); return; }
+
+  const btn = document.getElementById('btn-criar-os');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  const { error } = await sb.from('ordens').insert({
+    cliente, telefone, tipo, descricao:desc, tecnico_id:parseInt(tecnico_id),
+    data_agendada, valor, endereco, status:'Pendente', mensagem_enviada:false
+  });
+
+  btn.disabled = false; btn.textContent = '✅ Criar Ordem de Serviço';
+  if (error) { toast('Erro: '+error.message,'error'); return; }
+
+  toast('✅ OS criada!');
+  ['os-cliente','os-telefone','os-desc','os-valor','os-endereco'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('os-tipo').value='';
+  document.getElementById('os-tecnico').value='';
+  document.getElementById('os-data').value='';
+  await loadOrdens();
+  renderAll();
+}
+
+async function mudarStatus(id, status) {
+  const { error } = await sb.from('ordens').update({ status }).eq('id', id);
+  if (error) { toast('Erro','error'); return; }
+  toast('Status atualizado');
+  await loadOrdens();
+  renderAll();
+}
+
+async function excluirOS(id) {
+  if (!confirm('Excluir esta OS?')) return;
+  await sb.from('ordens').delete().eq('id', id);
+  toast('OS excluída');
+  await loadOrdens();
+  renderAll();
+}
+
+// ===================== OS CARD =====================
+function osCard(os) {
+  const tec = os.tecnicos || getTecnico(os.tecnico_id);
+  return `
+    <div class="os-item">
+      <div class="os-header">
+        <div>
+          <div class="os-number">OS #${String(os.id).padStart(4,'0')} · ${formatDate(os.data_agendada)}</div>
+          <div class="os-client">${os.cliente}</div>
+          <div class="os-detail">${os.tipo} · ${tec.nome||'—'} · ${os.valor ? 'R$ '+parseFloat(os.valor).toFixed(2).replace('.',',') : 'A definir'}</div>
+        </div>
+        ${badgeStatus(os.status)}
+      </div>
+      ${os.descricao ? `<div class="os-detail" style="margin-bottom:4px">${os.descricao}</div>` : ''}
+      <div class="os-actions">
+        <select onchange="mudarStatus(${os.id}, this.value)" style="width:auto;margin:0;padding:5px 10px;font-size:12px">
+          ${['Pendente','Em andamento','Concluído','Cobrado'].map(s=>`<option ${os.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        ${os.status==='Concluído' && !os.mensagem_enviada ? `<button class="btn btn-whatsapp btn-sm" onclick="irParaCobranca(${os.id})">💬 Msg</button>` : ''}
+        ${os.telefone ? `<button class="btn btn-ghost btn-sm" onclick="ligar('${os.telefone}')">📞</button>` : ''}
+        <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="excluirOS(${os.id})">🗑️</button>
+      </div>
+    </div>`;
+}
+
+// ===================== DASHBOARD =====================
+function renderDashboard() {
+  document.getElementById('stat-total').textContent = ordens.length;
+  document.getElementById('stat-andamento').textContent = ordens.filter(o=>o.status==='Em andamento').length;
+  document.getElementById('stat-pendente').textContent = ordens.filter(o=>o.status==='Pendente').length;
+  document.getElementById('stat-concluido').textContent = ordens.filter(o=>o.status==='Concluído'||o.status==='Cobrado').length;
+
+  const hoje = new Date().toISOString().split('T')[0];
+  const urgentes = ordens.filter(o=>o.data_agendada===hoje && o.status!=='Concluído' && o.status!=='Cobrado');
+  const semMsg = ordens.filter(o=>o.status==='Concluído' && !o.mensagem_enviada);
+
+  let html = '';
+  if (urgentes.length) html += `<div class="alert">📅 ${urgentes.length} serviço(s) agendado(s) para hoje</div>`;
+  if (semMsg.length) html += `<div class="alert">💬 ${semMsg.length} concluído(s) sem mensagem enviada</div>`;
+  if (!html) html = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Nenhum aviso pendente. ✅</div>';
+  document.getElementById('alertas-hoje').innerHTML = html;
+
+  const recentes = ordens.slice(0,5);
+  document.getElementById('dashboard-list').innerHTML = recentes.length
+    ? recentes.map(osCard).join('')
+    : '<div class="empty"><div class="empty-icon">📋</div><div style="font-size:13px">Nenhuma OS ainda</div></div>';
+}
+
+function renderServicos() {
+  const filtro = document.getElementById('filtro-status').value;
+  const lista = filtro ? ordens.filter(o=>o.status===filtro) : ordens;
+  document.getElementById('lista-servicos').innerHTML = lista.length
+    ? lista.map(osCard).join('')
+    : '<div class="empty"><div class="empty-icon">📋</div><div style="font-size:13px">Nenhuma ordem encontrada</div></div>';
+}
+
+function renderTecnicos() {
+  const el = document.getElementById('painel-tecnicos');
+  el.innerHTML = tecnicos.length ? tecnicos.map(tec => {
+    const servicos = ordens.filter(o=>o.tecnico_id===tec.id && o.status!=='Concluído' && o.status!=='Cobrado');
+    return `
+      <div class="tech-card">
+        <div class="tech-header">
+          <div class="tech-name"><span class="tech-dot"></span>${tec.nome}</div>
+          <div style="display:flex;gap:6px">
+            ${tec.tel ? `<button class="btn btn-whatsapp btn-sm" onclick="cobrarTecnico(${tec.id})">⚡ Cobrar</button>` : ''}
+            ${tec.tel ? `<button class="btn btn-ghost btn-sm" onclick="ligar('${tec.tel}')">📞</button>` : ''}
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:${servicos.length?'10px':'0'}">${servicos.length} OS ativa(s)</div>
+        ${servicos.map(s=>`
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div><strong>${s.cliente}</strong> · ${s.tipo}<br><span style="color:var(--muted)">${formatDate(s.data_agendada)}</span></div>
+            ${badgeStatus(s.status)}
+          </div>`).join('')}
+      </div>`;
+  }).join('') : '<div class="empty"><div style="font-size:13px">Nenhum técnico cadastrado</div></div>';
+
+  document.getElementById('lista-tecnicos-config').innerHTML = tecnicos.map(t=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div><strong>${t.nome}</strong><span style="color:var(--muted);font-size:12px;margin-left:8px">${t.tel||'sem telefone'}</span></div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="removerTecnico(${t.id})">🗑️</button>
+    </div>`).join('');
+
+  const sel = document.getElementById('os-tecnico');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Selecionar...</option>';
+  tecnicos.forEach(t => sel.innerHTML += `<option value="${t.id}" ${cur==t.id?'selected':''}>${t.nome}</option>`);
+
+  // Técnico self select
+  const selTec = document.getElementById('tec-self-select');
+  if (selTec) {
+    const curTec = selTec.value;
+    selTec.innerHTML = '<option value="">Selecionar meu nome...</option>';
+    tecnicos.forEach(t => selTec.innerHTML += `<option value="${t.id}" ${curTec==t.id?'selected':''}>${t.nome}</option>`);
+  }
+}
+
+async function adicionarTecnico() {
+  const nome = document.getElementById('novo-tecnico-nome').value.trim();
+  const tel = document.getElementById('novo-tecnico-tel').value.trim();
+  if (!nome) { toast('⚠️ Informe o nome','error'); return; }
+  const { error } = await sb.from('tecnicos').insert({ nome, tel });
+  if (error) { toast('Erro: '+error.message,'error'); return; }
+  document.getElementById('novo-tecnico-nome').value='';
+  document.getElementById('novo-tecnico-tel').value='';
+  toast('✅ Técnico adicionado');
+  await loadTecnicos();
+  renderAll();
+}
+
+async function removerTecnico(id) {
+  if (!confirm('Remover técnico?')) return;
+  await sb.from('tecnicos').delete().eq('id', id);
+  toast('Técnico removido');
+  await loadTecnicos();
+  renderAll();
+}
+
+function cobrarTecnico(id) {
+  const tec = getTecnico(id);
+  const servicos = ordens.filter(o=>o.tecnico_id===id && o.status!=='Concluído' && o.status!=='Cobrado');
+  let msg = `Oi ${tec.nome.split(' ')[0]}! 👋\n\nPode me dar uma atualização dos serviços?\n\n`;
+  msg += servicos.length
+    ? servicos.map(s=>`• ${s.cliente} — ${s.tipo} (${formatDate(s.data_agendada)})`).join('\n') + '\n\nQual o status? Já tem fotos?'
+    : 'Alguma OS em aberto aí?';
+  abrirWhatsApp(tec.tel, msg);
+}
+
+// ===================== PÓS-SERVIÇO =====================
+function renderCobranca() {
+  const sel = document.getElementById('sel-os-cobranca');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Selecionar...</option>';
+  ordens.filter(o=>o.status==='Concluído'||o.status==='Cobrado').forEach(os =>
+    sel.innerHTML += `<option value="${os.id}" ${cur==os.id?'selected':''}>OS #${String(os.id).padStart(4,'0')} · ${os.cliente}</option>`
+  );
+  if (cur) { sel.value=cur; previewMensagem(); }
+
+  const aguardando = ordens.filter(o=>o.status==='Concluído'&&!o.mensagem_enviada);
+  document.getElementById('lista-aguardando').innerHTML = aguardando.length
+    ? aguardando.map(os=>`
+      <div class="os-item">
+        <div class="os-header">
+          <div>
+            <div class="os-number">OS #${String(os.id).padStart(4,'0')} · ${formatDate(os.data_agendada)}</div>
+            <div class="os-client">${os.cliente}</div>
+            <div class="os-detail">${os.tipo}</div>
+          </div>
+          <span class="badge" style="background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.3)">Sem mensagem</span>
+        </div>
+        <div class="os-actions">
+          <button class="btn btn-whatsapp btn-sm" onclick="irParaCobranca(${os.id})">💬 Gerar mensagem</button>
+        </div>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:13px;padding:8px 0">Nenhum serviço aguardando. ✅</div>';
+}
+
+function previewMensagem() {
+  const osId = parseInt(document.getElementById('sel-os-cobranca').value);
+  const tipo = document.getElementById('sel-tipo-msg').value;
+  const box = document.getElementById('msg-preview-box');
+  if (!osId) { box.style.display='none'; return; }
+  const os = ordens.find(o=>o.id===osId); if (!os) return;
+
+  const pix = config.pix||'PIX não configurado';
+  const pixNome = config.pix_nome||config.empresa;
+  const empresa = config.empresa||'Adilseg';
+  const val = os.valor ? '\n💰 Valor: R$ '+parseFloat(os.valor).toFixed(2).replace('.',',') : '';
+
+  const msgs = {
+    agradecimento: `Olá, ${os.cliente}! 😊\n\nAgradecemos pela preferência e confiança na ${empresa}.\n\nEspero que o serviço tenha ficado do seu agrado!\n\nEstamos sempre à disposição. 🔧`,
+    pix: `Olá, ${os.cliente}! 😊\n\nA respeito do pagamento, pode ser feito via PIX:\n\n🔑 Chave: ${pix}\n👤 Titular: ${pixNome}${val}\n\nQualquer dúvida, é só falar! 😊`,
+    completo: `Olá, ${os.cliente}! 😊\n\nAgradecemos pela preferência e confiança na ${empresa}.\n\nEspero que o serviço tenha ficado do seu agrado!\n\nA respeito do pagamento, pode ser feito via PIX:\n\n🔑 Chave: ${pix}\n👤 Titular: ${pixNome}${val}\n\nEstamos sempre à disposição! 🔧`
+  };
+
+  const msg = msgs[tipo];
+  document.getElementById('msg-preview-text').textContent = msg;
+  box.style.display='block';
+  box._osId=osId; box._tel=os.telefone; box._msg=msg;
+}
+
+async function enviarWhatsApp() {
+  const box = document.getElementById('msg-preview-box');
+  abrirWhatsApp(box._tel, box._msg);
+  await sb.from('ordens').update({ mensagem_enviada:true, status:'Cobrado' }).eq('id', box._osId);
+  toast('✅ WhatsApp aberto!');
+  await loadOrdens();
+  renderAll();
+}
+
+function irParaCobranca(id) {
+  showTabByName('cobranca');
+  setTimeout(() => { document.getElementById('sel-os-cobranca').value=id; previewMensagem(); window.scrollTo(0,0); }, 100);
+}
+
+function abrirWhatsApp(tel, msg) {
+  const n = limparTel(tel||'');
+  window.open(n ? `https://wa.me/55${n}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function ligar(tel) { window.open(`tel:${limparTel(tel)}`); }
+
+// ===================== CONFIG =====================
+function renderConfig() {
+  document.getElementById('cfg-empresa').value = config.empresa||'';
+  document.getElementById('cfg-responsavel').value = config.responsavel||'';
+  document.getElementById('cfg-pix').value = config.pix||'';
+  document.getElementById('cfg-pix-nome').value = config.pix_nome||'';
+}
+
+async function salvarConfig() {
+  const dados = {
+    empresa: document.getElementById('cfg-empresa').value,
+    responsavel: document.getElementById('cfg-responsavel').value,
+    pix: document.getElementById('cfg-pix').value,
+    pix_nome: document.getElementById('cfg-pix-nome').value
+  };
+  const { error } = await sb.from('config').upsert({ id:1, ...dados });
+  if (error) { toast('Erro: '+error.message,'error'); return; }
+  config = { id:1, ...dados };
+
+  const sg = document.getElementById('cfg-senha-gestor').value;
+  const st = document.getElementById('cfg-senha-tecnico').value;
+  if (sg) localStorage.setItem('adilseg_senha_gestor', sg);
+  if (st) localStorage.setItem('adilseg_senha_tecnico', st);
+
+  toast('✅ Configurações salvas');
+}
+
+// ===================== TÉCNICO VIEW =====================
+function renderTecView() {
+  renderTecnicos();
+  const role = sessionStorage.getItem('adilseg_role');
+  if (role !== 'tecnico') return;
+
+  const el = document.getElementById('tec-lista-os');
+  if (!el) return;
+
+  const tecId = parseInt(localStorage.getItem('adilseg_tec_id') || '0');
+  const minhas = tecId ? ordens.filter(o=>o.tecnico_id===tecId && o.status!=='Cobrado') : ordens.filter(o=>o.status!=='Cobrado');
+
+  if (!minhas.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div style="font-size:13px">Nenhuma OS pendente</div></div>';
+    return;
+  }
+
+  el.innerHTML = minhas.map(os => `
+    <div class="tec-os-card">
+      <div class="tec-os-tipo">${os.tipo}</div>
+      <div class="tec-os-cliente">${os.cliente}</div>
+      <div class="tec-os-info">
+        📅 ${formatDate(os.data_agendada)}<br>
+        📍 ${os.endereco||'Endereço não informado'}<br>
+        ${os.descricao ? '📝 '+os.descricao : ''}
+      </div>
+      ${badgeStatus(os.status)}
+      <div class="tec-actions" style="margin-top:14px">
+        <select onchange="mudarStatusTec(${os.id}, this.value)" style="margin:0;padding:10px;font-size:14px">
+          ${['Pendente','Em andamento','Concluído'].map(s=>`<option ${os.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        ${os.telefone ? `<button class="btn btn-ghost" style="justify-content:center" onclick="ligar('${os.telefone}')">📞 Ligar para o cliente</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function mudarStatusTec(id, status) {
+  await sb.from('ordens').update({ status }).eq('id', id);
+  toast('✅ Status atualizado!');
+  await loadOrdens();
+  renderTecView();
+}
+
+// ===================== LOCALIZAÇÃO =====================
+async function compartilharLocalizacao() {
+  const tecId = document.getElementById('tec-self-select').value;
+  if (!tecId) { toast('⚠️ Selecione seu nome primeiro','error'); return; }
+
+  localStorage.setItem('adilseg_tec_id', tecId);
+
+  if (!navigator.geolocation) { toast('GPS não disponível neste dispositivo','error'); return; }
+
+  const btn = document.getElementById('btn-checkin');
+  btn.textContent = '⏳ Obtendo localização...';
+  btn.disabled = true;
+
+  const enviar = () => {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      await sb.from('tecnicos').update({
+        lat: latitude,
+        lng: longitude,
+        ultima_localizacao: new Date().toISOString()
+      }).eq('id', parseInt(tecId));
+
+      document.getElementById('checkin-msg').textContent = '📍 Localização compartilhada';
+      document.getElementById('checkin-ultima').textContent = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')} · Precisão: ${Math.round(accuracy)}m`;
+    }, (err) => {
+      toast('Erro de GPS: '+err.message,'error');
+    }, { enableHighAccuracy:true, timeout:10000 });
+  };
+
+  enviar();
+  locationInterval = setInterval(enviar, 30000); // atualiza a cada 30s
+
+  btn.textContent = '✅ Compartilhando...';
+  btn.disabled = false;
+  document.getElementById('btn-parar-checkin').style.display = 'flex';
+  toast('📍 Localização sendo compartilhada', 'info');
+}
+
+function pararLocalizacao() {
+  if (locationInterval) { clearInterval(locationInterval); locationInterval = null; }
+  document.getElementById('checkin-msg').textContent = 'Localização pausada';
+  document.getElementById('checkin-ultima').textContent = '';
+  document.getElementById('btn-checkin').textContent = '📍 Compartilhar Minha Localização';
+  document.getElementById('btn-parar-checkin').style.display = 'none';
+  toast('Compartilhamento pausado');
+}
+
+// ===================== RENDER ALL =====================
+function renderAll() {
+  renderDashboard();
+  renderServicos();
+  renderTecnicos();
+  renderCobranca();
+  renderConfig();
+}
+
+</script>
+</body>
+</html>
